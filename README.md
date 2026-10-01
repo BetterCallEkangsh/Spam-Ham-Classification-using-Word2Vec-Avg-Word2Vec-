@@ -1,76 +1,142 @@
-# Spam-Ham Classification using Word2Vec (Avg Word2Vec)
+# 📩 SMS Spam vs Ham Classification using Word2Vec + Random Forest
 
-An NLP project that classifies SMS messages as **Spam** or **Ham (Not Spam)** using custom-trained Word2Vec word embeddings and a Random Forest classifier.
+A machine learning project that classifies SMS messages as **spam** or **ham** (legitimate) by converting text into dense semantic vectors with **Word2Vec** and training a **Random Forest** classifier on top of them.
 
-## 📂 Project Structure
+---
+
+## 📌 Overview
+
+Traditional bag-of-words approaches treat every word as an independent token and ignore meaning. This project instead represents each SMS as the **average of its word embeddings**, so messages with similar meaning end up close together in vector space. A tuned Random Forest then separates spam from ham.
+
+**Pipeline:**
 
 ```
-.
-├── 28_And_29_-Spam_Ham_Projects_Using_Word2vec_AvgWord2vec.ipynb   # Main notebook
-├── smsspamcollection/
-│   └── SMSSpamCollection            # Dataset (tab-separated: label, message)
-└── README.md
+Raw SMS → Tokenize (simple_preprocess) → Word2Vec (300-d) → Average word vectors → Random Forest → Spam / Ham
 ```
 
-## 🧠 Approach
+---
 
-**1. Text Preprocessing**
-- Removed non-alphabetic characters using regex
-- Lowercased all text
-- Lemmatized tokens using NLTK's `WordNetLemmatizer`
-- Tokenized cleaned sentences using Gensim's `simple_preprocess`
+## 📂 Dataset
 
-**2. Word Embeddings**
-- Explored pre-trained **Google News Word2Vec (300-dim)** embeddings via `gensim.downloader`
-- Trained a **custom Word2Vec model from scratch** on the SMS corpus using `gensim.models.Word2Vec`
-- Converted each message into a fixed-length vector using **Average Word2Vec (AvgWord2Vec)** — averaging the embedding vectors of all in-vocabulary words in a sentence
+- **Source:** [SMS Spam Collection Dataset](https://archive.ics.uci.edu/dataset/228/sms+spam+collection) (UCI / Kaggle)
+- **Size:** 5,572 messages
+- **Format:** tab-separated, two columns: `label` (`ham` / `spam`) and `messages`
+- **Class balance:** imbalanced, with ham heavily outnumbering spam (test split: 1,207 ham vs 186 spam)
 
-**3. Model Training**
-- Built the final feature matrix from averaged word vectors
-- Encoded target labels (`spam`/`ham`) using one-hot encoding
-- Split data into train/test sets (80/20)
-- Trained a **Random Forest Classifier** on the vectorized messages
+Place the file as `SMSSpamCollection.csv` in your working directory (the notebook reads it from `/content/` when run on Google Colab).
 
-**4. Evaluation**
-- Evaluated using **accuracy score** and **classification report** (precision, recall, F1-score)
+---
 
 ## 🛠️ Tech Stack
 
-`Python` `Gensim` `Word2Vec` `NLTK` `Scikit-learn` `Random Forest` `Pandas` `NumPy` `tqdm`
+| Area | Tools |
+|---|---|
+| Language | Python 3 |
+| NLP / Embeddings | Gensim (Word2Vec), NLTK |
+| ML | scikit-learn (RandomForestClassifier, GridSearchCV) |
+| Data | Pandas, NumPy |
+| Utilities | tqdm |
 
-## ⚙️ Installation
+---
 
-```bash
-pip install gensim nltk scikit-learn pandas numpy tqdm
-```
+## 🔬 Methodology
 
-Also download the required NLTK corpus:
-```python
-import nltk
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('punkt')
-```
+1. **Exploring embeddings:** Loaded Google's pretrained `word2vec-google-news-300` to inspect 300-dimensional word vectors and nearest neighbours (e.g. `king` → `queen`, `monarch`, `prince`).
+2. **Preprocessing:** Tokenized and lowercased each SMS with `gensim.utils.simple_preprocess`.
+3. **Training Word2Vec on the SMS corpus:** `vector_size=300`, `min_count=2`, `epochs=10`, trained directly on the 5,572 messages.
+4. **Sentence vectors:** Each message is represented by the **mean of its word vectors** (zero vector if no known words).
+5. **Labels:** `ham → 1`, `spam → 0`.
+6. **Split:** 75% train / 25% test (`random_state=42`).
+7. **Model:** `RandomForestClassifier(n_estimators=200)` as the baseline.
+8. **Tuning:** `GridSearchCV` (5-fold CV) over `n_estimators ∈ {50, 100, 250, 500}`.
 
-## ▶️ Usage
-
-1. Place the `SMSSpamCollection` dataset inside a `smsspamcollection/` folder (dataset available from the [UCI SMS Spam Collection](https://archive.ics.uci.edu/dataset/228/sms+spam+collection)).
-2. Open and run the notebook `28_And_29_-Spam_Ham_Projects_Using_Word2vec_AvgWord2vec.ipynb` cell by cell.
-3. The notebook will:
-   - Preprocess and tokenize the SMS text
-   - Train a Word2Vec model on the corpus
-   - Generate Average Word2Vec feature vectors
-   - Train and evaluate a Random Forest spam classifier
+---
 
 ## 📊 Results
 
-The model outputs an accuracy score and a full classification report (precision/recall/F1) on the held-out test set, distinguishing spam messages from legitimate (ham) messages.
+**Baseline Random Forest (200 trees)**
 
-## 📝 Notes
+| Class | Precision | Recall | F1-score | Support |
+|---|---|---|---|---|
+| Spam (0) | 0.91 | 0.89 | 0.90 | 186 |
+| Ham (1) | 0.98 | 0.99 | 0.98 | 1207 |
 
-- The pipeline demonstrates both **pre-trained embeddings** (Google News Word2Vec) and **custom-trained embeddings** on domain-specific (SMS) text, useful for comparing embedding quality on short, informal text.
-- Average Word2Vec is a simple but effective way to convert variable-length text into fixed-size numeric vectors for use with traditional ML classifiers.
+- Accuracy: **0.97**
+- ROC-AUC: **0.939**
 
-## 📌 License
+**After GridSearchCV tuning**
 
-This project is open source and available for personal or educational use.
+| Class | Precision | Recall | F1-score | Support |
+|---|---|---|---|---|
+| Spam (0) | 0.92 | 0.89 | 0.90 | 186 |
+| Ham (1) | 0.98 | 0.99 | 0.99 | 1207 |
+
+- Accuracy: **0.97**
+- ROC-AUC: **0.940**
+
+Tuning gave a small but consistent improvement over the baseline.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<your-username>/<your-repo-name>.git
+cd <your-repo-name>
+```
+
+### 2. Install dependencies
+
+```bash
+pip install gensim nltk scikit-learn pandas numpy tqdm jupyter
+```
+
+### 3. Add the dataset
+
+Download the SMS Spam Collection and save it as `SMSSpamCollection.csv` in the project folder. Update the path in the notebook if you are not using Colab:
+
+```python
+df = pd.read_csv('SMSSpamCollection.csv', sep='\t', names=['label', 'messages'])
+```
+
+### 4. Run the notebook
+
+```bash
+jupyter notebook Spam_Ham_Classification_Project_ANN.ipynb
+```
+
+> **Note:** The pretrained `word2vec-google-news-300` model is ~1.6 GB and downloads on first use. It is only used for the embedding exploration; the classifier uses the Word2Vec model trained on the SMS data.
+
+---
+
+## 📁 Project Structure
+
+```
+├── Spam_Ham_Classification_Project_ANN.ipynb   # Full workflow
+├── SMSSpamCollection.csv                       # Dataset (add manually)
+└── README.md
+```
+
+---
+
+## 🔭 Future Improvements
+
+- Use the **pretrained Google News vectors** (or GloVe / FastText) for sentence embeddings. A Word2Vec model trained on only ~5.5k short texts gives weak neighbours (e.g. `king` returns unrelated words), so pretrained vectors will likely generalize better.
+- Handle **class imbalance** with `class_weight='balanced'`, SMOTE, or threshold tuning to improve spam recall.
+- Tune more hyperparameters (`max_depth`, `min_samples_split`, `max_features`) and report the best parameters found.
+- Add a stratified split and cross-validated metrics (precision/recall/F1, PR-AUC).
+- Compare against TF-IDF + Logistic Regression / Naive Bayes baselines.
+- Implement an actual **Artificial Neural Network** (Keras/PyTorch) on the averaged embeddings, and compare it with the Random Forest.
+- Deploy as a small web app (Streamlit / Flask) for live SMS prediction.
+
+---
+
+## 🙋 Author
+
+**Ekangsh**
+B.Tech, Production & Industrial Engineering, NIT Jamshedpur
+Interested in data science and analytics.
+
+Feel free to ⭐ the repo if you found it useful!
